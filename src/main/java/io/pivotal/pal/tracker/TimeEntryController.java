@@ -1,5 +1,7 @@
 package io.pivotal.pal.tracker;
 
+import org.springframework.boot.actuate.metrics.CounterService;
+import org.springframework.boot.actuate.metrics.GaugeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -10,16 +12,24 @@ import java.util.List;
 public class TimeEntryController {
 
     private TimeEntryRepository t;
+    private final CounterService counter;
+    private final GaugeService gauge;
 
-    public TimeEntryController(TimeEntryRepository ter) {
+    public TimeEntryController(TimeEntryRepository ter,
+            CounterService counter,
+            GaugeService gauge)
+    {
         t =ter;
-        //return null;
+        this.counter = counter;
+        this.gauge = gauge;
     }
 
     @PostMapping("/time-entries")
     public ResponseEntity<TimeEntry> create(@RequestBody TimeEntry te) {
         //need to set this to created...
         te = t.create(te);
+        counter.increment("TimeEntry.created");
+        gauge.submit("timeEntries.count", t.list().size());
         return new ResponseEntity(te,HttpStatus.CREATED);
     }
 
@@ -31,10 +41,10 @@ public class TimeEntryController {
 
         if (x == null)
         {
-
            re = new ResponseEntity(HttpStatus.NOT_FOUND);
 
         } else {
+            counter.increment("TimeEntry.read");
             re = new ResponseEntity(x, HttpStatus.OK);
         }
         return  re;
@@ -42,6 +52,7 @@ public class TimeEntryController {
 
     @GetMapping("/time-entries")
     public ResponseEntity<List<TimeEntry>> list() {
+        counter.increment("TimeEntry.listed");
         return  ResponseEntity.ok(t.list());
     }
 
@@ -54,10 +65,10 @@ public class TimeEntryController {
 
         if (x == null)
         {
-
             re = new ResponseEntity(HttpStatus.NOT_FOUND);
 
         } else {
+            counter.increment("TimeEntry.updated");
             re = new ResponseEntity(x, HttpStatus.OK);
         }
         return  re;
@@ -68,6 +79,8 @@ public class TimeEntryController {
     @DeleteMapping("/time-entries/{id}")
     public ResponseEntity delete(@PathVariable("id") long id) {
         t.delete(id);
+        counter.increment("TimeEntry.deleted");
+        gauge.submit("timeEntries.count", t.list().size());
         return   new ResponseEntity(HttpStatus.NO_CONTENT);
     }
 
